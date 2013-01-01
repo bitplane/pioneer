@@ -27,6 +27,7 @@ using namespace Graphics;
 #define INNER_RADIUS (Sector::SIZE*1.5f)
 #define OUTER_RADIUS (Sector::SIZE*3.0f)
 #define FAR_THRESHOLD 5.f
+#define NEAR_FADE_THRESHOLD (FAR_THRESHOLD * 0.5f)
 #define FAR_LIMIT     36.f
 #define FAR_MAX       46.f
 
@@ -458,13 +459,15 @@ void SectorView::OnClickSystem(const SystemPath &path)
 
 void SectorView::PutSystemLabels(Sector *sec, const vector3f &origin, int drawRadius)
 {
+	const float fadeOut = 1.f - (m_zoom - NEAR_FADE_THRESHOLD) / (FAR_THRESHOLD - NEAR_FADE_THRESHOLD);
+
 	Uint32 sysIdx = 0;
 	for (std::vector<Sector::System>::iterator sys = sec->m_systems.begin(); sys !=sec->m_systems.end(); ++sys, ++sysIdx) {
 		// skip the system if it doesn't fall within the sphere we're viewing.
 		if ((m_pos*Sector::SIZE - (*sys).FullPosition()).Length() > drawRadius) continue;
 
 		// skip the system if it belongs to a Faction we've toggled off, and isn't any of our selections
-		if (m_hiddenFactions.find((*sys).faction) != m_hiddenFactions.end() 
+		if (m_hiddenFactions.find((*sys).faction) != m_hiddenFactions.end()
 			&& !sys->IsSameSystem(m_selected) && !sys->IsSameSystem(m_hyperspaceTarget) && !sys->IsSameSystem(m_current)) continue;
 
 		// place the label
@@ -474,6 +477,11 @@ void SectorView::PutSystemLabels(Sector *sec, const vector3f &origin, int drawRa
 			// work out the colour
 			float dist = Sector::DistanceBetween(sec, sysIdx, GetCached(m_current.sectorX, m_current.sectorY, m_current.sectorZ), m_current.systemIndex);
 			Color labelColor = (*sys).faction->AdjustedColour((*sys).population, dist <= m_playerHyperspaceRange);
+
+			// if it's not visible on the far view, fade it out
+			std::set<Faction*>::iterator foundFaction = m_visibleFactions.find((*sys).faction);
+			if (foundFaction == m_visibleFactions.end() || !(*foundFaction)->IsHomeSystem(SystemPath(sys->sx, sys->sy, sys->sz, sys->idx)))
+				labelColor.a *= fadeOut;
 
 			// get a system path to pass to the event handler when the label is licked
 			SystemPath sysPath = SystemPath((*sys).sx, (*sys).sy, (*sys).sz, sysIdx);
@@ -693,13 +701,15 @@ void SectorView::DrawNearSectors(matrix4x4f modelview)
 
 void SectorView::DrawNearSector(int sx, int sy, int sz, const vector3f &playerAbsPos,const matrix4x4f &trans)
 {
+	const float fadeOut = 1.f - (m_zoom - NEAR_FADE_THRESHOLD) / (FAR_THRESHOLD - NEAR_FADE_THRESHOLD);
+
 	m_renderer->SetTransform(trans);
 	Sector* ps = GetCached(sx, sy, sz);
 
 	int cz = int(floor(m_pos.z+0.5f));
 
 	if (cz == sz) {
-		const Color darkgreen(0.f, 0.2f, 0.f, 1.f);
+		const Color darkgreen(0.f, 0.2f, 0.f, fadeOut);
 		const vector3f vts[] = {
 			vector3f(0.f, 0.f, 0.f),
 			vector3f(0.f, Sector::SIZE, 0.f),
@@ -719,10 +729,10 @@ void SectorView::DrawNearSector(int sx, int sy, int sz, const vector3f &playerAb
 		// ...and skip the system if it doesn't fall within the sphere we're viewing.
 		if (toCentreOfView.Length() > OUTER_RADIUS) continue;
 
-		// if the system belongs to a faction we've chosen to temporarily hide, but isn't the current system 
+		// if the system belongs to a faction we've chosen to temporarily hide, but isn't the current system
 		// or target then skip it
 		m_visibleFactions.insert(i->faction);
-		if (m_hiddenFactions.find(i->faction) != m_hiddenFactions.end() 
+		if (m_hiddenFactions.find(i->faction) != m_hiddenFactions.end()
 			&& !i->IsSameSystem(m_selected) && !i->IsSameSystem(m_hyperspaceTarget) && !i->IsSameSystem(m_current)) continue;
 
 		// don't worry about looking for inhabited systems if they're
@@ -751,7 +761,7 @@ void SectorView::DrawNearSector(int sx, int sy, int sz, const vector3f &playerAb
 		glDisable(GL_LIGHTING);
 
 		// draw system "leg"
-		glColor4f(0.5f, 0.5f, 0.5f, 0.5f);
+		glColor4f(0.5f, 0.5f, 0.5f, 0.5f * fadeOut);
 		glBegin(GL_LINE_STRIP);
 			float z = -(*i).p.z;
 			if (sz <= cz)
@@ -760,9 +770,9 @@ void SectorView::DrawNearSector(int sx, int sy, int sz, const vector3f &playerAb
 				z = z-abs(cz-sz)*Sector::SIZE;
 
 			glVertex3f(0, 0, z);
-			glColor4f(0.2f, 0.2f, 0.2f, 0.2f);
+			glColor4f(0.2f, 0.2f, 0.2f, 0.2f * fadeOut);
 			glVertex3f(0, 0, z * 0.5);
-			glColor4f(0.5f, 0.5f, 0.5f, 0.5f);
+			glColor4f(0.5f, 0.5f, 0.5f, 0.5f * fadeOut);
 			glVertex3f(0, 0, 0);
 		glEnd();
 
