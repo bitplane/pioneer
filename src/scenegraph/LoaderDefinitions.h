@@ -10,8 +10,8 @@
 namespace SceneGraph {
 
 struct MaterialDefinition {
-	MaterialDefinition() :
-		name(""),
+	MaterialDefinition(const std::string &n) :
+		name(n),
 		tex_diff(""),
 		tex_spec(""),
 		tex_glow(""),
@@ -19,8 +19,11 @@ struct MaterialDefinition {
 		specular(Color(1.f)),
 		ambient(Color(0.f)),
 		emissive(Color(0.f)),
-		shininess(200),
+		shininess(100),
 		opacity(100),
+		alpha_test(false),
+		two_sided(false),
+		unlit(false),
 		use_pattern(false)
 	{ }
 	std::string name;
@@ -31,8 +34,11 @@ struct MaterialDefinition {
 	Color specular;
 	Color ambient;
 	Color emissive;
-	int shininess; //specular power, 0+
-	int opacity;
+	unsigned int shininess; //specular power, 0-128
+	unsigned int opacity; //0-100
+	bool alpha_test;
+	bool two_sided;
+	bool unlit;
 	bool use_pattern;
 };
 
@@ -75,4 +81,5 @@ struct ModelDefinition {
 };
 
 }
+
 #endif
